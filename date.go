@@ -42,7 +42,7 @@ func (date *AwbDate) setType() {
 	date.Typ = "unbekannt"
 
 	if date.Restmuell > 0 {
-		date.Typ = "Restmüll"
+		date.Typ = "Rest"
 	}
 	if date.Bio > 0 {
 		date.Typ = "Bio"
