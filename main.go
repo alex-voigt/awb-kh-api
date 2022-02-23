@@ -47,7 +47,7 @@ func getDates(w http.ResponseWriter, req *http.Request) {
 	responseDates := []RenderDate{}
 	for _, awbDate := range awbDates {
 		awbDate.setType()
-		if awbDate.isInFuture() {
+		if awbDate.isNextDate() {
 			entries++
 			responseDates = append(responseDates, awbDate.RenderDate)
 		}

@@ -33,6 +33,16 @@ func (date AwbDate) getDate() time.Time {
 	return time
 }
 
+func (date AwbDate) isNextDate() bool {
+	return date.isToday() || date.isInFuture()
+}
+
+func (date AwbDate) isToday() bool {
+	y1, m1, d1 := time.Now().Date()
+	y2, m2, d2 := date.getDate().Date()
+	return y1 == y2 && m1 == m2 && d1 == d2
+}
+
 func (date AwbDate) isInFuture() bool {
 	now := time.Now()
 	return date.getDate().After(now)
