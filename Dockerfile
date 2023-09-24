@@ -12,7 +12,9 @@ RUN CGO_ENABLED=0 go build -o awb-kh-api
 
 FROM alpine:latest
 LABEL maintainer="Alex Voigt <mail@alexander-voigt.info>"
+ENV TZ=Europe/Berlin
 WORKDIR /app/
 VOLUME ["/app"]
+RUN apk add --no-cache tzdata
 COPY --from=builder /go/src/app/awb-kh-api .
 CMD ["./awb-kh-api"]
