@@ -1,4 +1,4 @@
-FROM golang:1.17.7 as dependencies
+FROM golang:1.21 as dependencies
 WORKDIR /go/src/app
 ENV GO111MODULE=on
 COPY go.mod .
