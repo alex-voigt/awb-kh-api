@@ -15,7 +15,7 @@ import (
 
 const (
 	PORT          = 8010
-	API_URL       = "https://blupassionsystem.de/city/rest/garbagestation/getAllGarbageCalendar"
+	API_URL       = "https://blupassionsystem.de/city/rest/garbageorte/getAllGarbageCalendar"
 	MAX_ENTRIES   = 10
 	DAYS_INTERVAL = 30
 	DATE_LAYOUT   = "2006-01-02"

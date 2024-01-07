@@ -8,7 +8,7 @@ Beispiel:
 
 ```bash
 curl --header "Accept: application/json" \
-    -XGET "https://blupassionsystem.de/city/rest/garbagestation/getAllGarbageCalendar?appId=44&cityId=23143&fromTime=1693519200000&houseNumberId=32023&regionId=14&streetId=23277&toTime=1696024800000"
+    -XGET "https://blupassionsystem.de/city/rest/garbageorte/getAllGarbageCalendar?appId=44&cityId=23143&fromTime=1693519200000&houseNumberId=32023&regionId=14&streetId=23277&toTime=1696024800000"
 ```
 
 ## Ergebnis AWB API

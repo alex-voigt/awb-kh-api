@@ -11,7 +11,6 @@ RUN go test ./... -timeout 30s -cover
 RUN CGO_ENABLED=0 go build -o awb-kh-api
 
 FROM alpine:latest
-LABEL maintainer="Alex Voigt <mail@alexander-voigt.info>"
 ENV TZ=Europe/Berlin
 WORKDIR /app/
 VOLUME ["/app"]
