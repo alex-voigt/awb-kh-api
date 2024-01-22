@@ -26,4 +26,4 @@ docker-build:
 
 .PHONY: docker-run
 docker-run:
-	 docker run --name awb-kh-api --rm -it awb-kh-api:latest
+	 docker run -p 8010:8010 --name awb-kh-api --rm -it awb-kh-api:latest

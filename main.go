@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
-
-	"github.com/goodsign/monday"
 )
 
 const (
@@ -27,12 +26,20 @@ type (
 	}
 
 	AwbData struct {
-		Calendars []AwbDate `json:"calendars"`
+		Calendars    []Calendar    `json:"calendars"`
+		HolidayViews []HolidayView `json:"holidayViews"`
 	}
 
-	AwbDate struct {
-		Type string `json:"name"`
-		Date int64  `json:"fromDate"`
+	Calendar struct {
+		Type      string `json:"name"`
+		Date      int64  `json:"fromDate"`
+		Frequency int    `json:"frequency"`
+	}
+
+	HolidayView struct {
+		IsActive bool  `json:"active"`
+		Holiday  int64 `json:"holiday"`
+		ShiftTo  int64 `json:"shiftTo"`
 	}
 
 	RenderDate struct {
@@ -42,43 +49,67 @@ type (
 	}
 )
 
-func (a AwbResponse) getDatesSortedAsc() []AwbDate {
-	dates := a.Data.Calendars
-
-	sort.Slice(dates, func(i, j int) bool {
-		return dates[i].Date < dates[j].Date
-	})
-
-	return dates
-}
-
-func (a AwbDate) toRenderDate() RenderDate {
-	date := a.getDate()
-
-	return RenderDate{
-		Type:    a.Type,
-		Date:    date.Format(DATE_LAYOUT),
-		Weekday: monday.GetLongDays(monday.LocaleDeDE)[date.Weekday()],
-	}
-}
-
-func (date AwbDate) getDate() time.Time {
+func (date Calendar) getDate() time.Time {
 	return time.UnixMilli(date.Date)
 }
 
-func (date AwbDate) isNextDate() bool {
-	return date.isToday() || date.isInFuture()
+func (date HolidayView) getDate() time.Time {
+	return time.UnixMilli(date.Holiday)
 }
 
-func (date AwbDate) isToday() bool {
-	y1, m1, d1 := time.Now().Date()
-	y2, m2, d2 := date.getDate().Date()
-	return y1 == y2 && m1 == m2 && d1 == d2
+func (date HolidayView) getShiftDate() time.Time {
+	return time.UnixMilli(date.ShiftTo)
 }
 
-func (date AwbDate) isInFuture() bool {
-	now := time.Now()
-	return date.getDate().After(now)
+func translateWeekday(weekday string) string {
+	r := strings.NewReplacer(
+		"Monday", "Montag",
+		"Tuesday", "Dienstag",
+		"Wednesday", "Mittwoch",
+		"Thursday", "Donnerstag",
+		"Friday", "Freitag",
+		"Saturday", "Samstag",
+		"Sunday", "Sonntag",
+	)
+
+	return r.Replace(weekday)
+}
+
+func (r AwbData) calculateNextDates(calendar Calendar, startDate time.Time) []RenderDate {
+	until := startDate.AddDate(0, 0, DAYS_INTERVAL)
+	renderDates := []RenderDate{}
+
+	date := calendar.getDate()
+	for date.Before(until) {
+		shiftedDate := r.shiftHolidays(date)
+		renderDate := RenderDate{
+			Type:    calendar.Type,
+			Date:    shiftedDate.Format(DATE_LAYOUT),
+			Weekday: translateWeekday(shiftedDate.Weekday().String()),
+		}
+		renderDates = append(renderDates, renderDate)
+		date = date.AddDate(0, 0, calendar.Frequency)
+	}
+
+	return renderDates
+}
+
+func (a AwbData) shiftHolidays(date time.Time) time.Time {
+	for _, holidayView := range a.HolidayViews {
+		if holidayView.IsActive && holidayView.getDate() == date {
+			return holidayView.getShiftDate()
+		}
+	}
+
+	return date
+}
+
+func getDatesSortedAsc(renderDates []RenderDate) []RenderDate {
+	sort.Slice(renderDates, func(i, j int) bool {
+		return renderDates[i].Date < renderDates[j].Date
+	})
+
+	return renderDates
 }
 
 func buildRequest(req *http.Request) *http.Request {
@@ -100,7 +131,7 @@ func buildRequest(req *http.Request) *http.Request {
 	return request
 }
 
-func postRequest(req *http.Request) []AwbDate {
+func postRequest(req *http.Request) AwbResponse {
 	client := &http.Client{}
 	response, err := client.Do(buildRequest(req))
 	if err != nil {
@@ -113,30 +144,35 @@ func postRequest(req *http.Request) []AwbDate {
 		log.Println(err)
 	}
 
-	dates := AwbResponse{}
-	err = json.Unmarshal(body, &dates)
+	awbResponse := AwbResponse{}
+	err = json.Unmarshal(body, &awbResponse)
 	if err != nil {
 		log.Println(err)
 	}
 
-	return dates.getDatesSortedAsc()
+	return awbResponse
 }
 
-func getProcessedDates(w http.ResponseWriter, req *http.Request) {
-	awbDates := postRequest(req)
+func getDatesFromResponse(response AwbResponse, startDate time.Time) []RenderDate {
+	renderDates := []RenderDate{}
 
-	entries := 0
-	responseDates := []RenderDate{}
-	for _, awbDate := range awbDates {
-		if awbDate.isNextDate() {
-			entries++
-			responseDates = append(responseDates, awbDate.toRenderDate())
-		}
-
-		if entries == MAX_ENTRIES {
-			break
-		}
+	for _, calendar := range response.Data.Calendars {
+		nextDates := response.Data.calculateNextDates(calendar, startDate)
+		renderDates = append(renderDates, nextDates...)
 	}
+
+	sortedDates := getDatesSortedAsc(renderDates)
+
+	if len(sortedDates) > MAX_ENTRIES {
+		return sortedDates[0:MAX_ENTRIES]
+	}
+	return sortedDates
+}
+
+func getNextDates(w http.ResponseWriter, req *http.Request) {
+	awbDates := postRequest(req)
+	yesterday := time.Now().Add(-time.Hour * 24)
+	responseDates := getDatesFromResponse(awbDates, yesterday)
 
 	marshalled, err := json.Marshal(responseDates)
 	if err != nil {
@@ -150,6 +186,6 @@ func getProcessedDates(w http.ResponseWriter, req *http.Request) {
 
 func main() {
 	fmt.Println(fmt.Sprintf("starting web server on port %d", PORT))
-	http.HandleFunc("/getDates", getProcessedDates)
+	http.HandleFunc("/getDates", getNextDates)
 	http.ListenAndServe(fmt.Sprintf(":%d", PORT), nil)
 }
