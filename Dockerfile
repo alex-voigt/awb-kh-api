@@ -6,6 +6,7 @@ COPY go.sum .
 RUN go mod download
 
 FROM dependencies as builder
+ENV TZ=Europe/Berlin
 COPY . .
 RUN go test ./... -timeout 30s -cover
 RUN CGO_ENABLED=0 go build -o awb-kh-api
